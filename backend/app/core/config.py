@@ -17,6 +17,9 @@ class Settings(BaseSettings):
         "http://127.0.0.1:3000",
         "http://localhost:3001",
         "http://127.0.0.1:3001",
+        "https://typeform.tech",
+        "https://www.typeform.tech",
+        "http://3.111.96.34",
     ]
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=True, extra="ignore")
