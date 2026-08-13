@@ -1,0 +1,103 @@
+from datetime import datetime
+from sqlalchemy.orm import Session
+from sqlalchemy import func
+from app.models.form import Form
+from app.models.question import Question, QuestionOption
+from app.schemas.question import QuestionCreate, QuestionUpdate, QuestionReorderItem
+from app.services.form_service import FormService
+from fastapi import HTTPException, status
+
+class QuestionService:
+    @staticmethod
+    def add_question(db: Session, form_id: str, q_in: QuestionCreate) -> Question:
+        form = FormService.get_form_by_id(db, form_id)
+        
+        # Calculate max position
+        max_pos = db.query(func.max(Question.position)).filter(Question.form_id == form_id).scalar()
+        next_pos = (max_pos + 1) if max_pos is not None else 0
+
+        question = Question(
+            form_id=form.id,
+            type=q_in.type,
+            title=q_in.title,
+            description=q_in.description,
+            required=q_in.required,
+            position=q_in.position if q_in.position > 0 else next_pos,
+            settings_json=q_in.settings_json or "{}",
+        )
+        db.add(question)
+        db.flush()
+
+        if q_in.options:
+            for idx, opt in enumerate(q_in.options):
+                option = QuestionOption(
+                    question_id=question.id,
+                    label=opt.label,
+                    value=opt.value or opt.label.lower().replace(" ", "_"),
+                    position=opt.position if opt.position is not None else idx,
+                )
+                db.add(option)
+
+        form.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(question)
+        return question
+
+    @staticmethod
+    def get_question_by_id(db: Session, question_id: str) -> Question:
+        question = db.query(Question).filter(Question.id == question_id).first()
+        if not question:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Question not found")
+        return question
+
+    @staticmethod
+    def update_question(db: Session, question_id: str, q_in: QuestionUpdate) -> Question:
+        question = QuestionService.get_question_by_id(db, question_id)
+        if q_in.type is not None:
+            question.type = q_in.type
+        if q_in.title is not None:
+            question.title = q_in.title
+        if q_in.description is not None:
+            question.description = q_in.description
+        if q_in.required is not None:
+            question.required = q_in.required
+        if q_in.position is not None:
+            question.position = q_in.position
+        if q_in.settings_json is not None:
+            question.settings_json = q_in.settings_json
+
+        if q_in.options is not None:
+            # Replace existing options
+            db.query(QuestionOption).filter(QuestionOption.question_id == question.id).delete()
+            for idx, opt in enumerate(q_in.options):
+                option = QuestionOption(
+                    question_id=question.id,
+                    label=opt.label,
+                    value=opt.value or opt.label.lower().replace(" ", "_"),
+                    position=opt.position if opt.position is not None else idx,
+                )
+                db.add(option)
+
+        question.updated_at = datetime.utcnow()
+        if question.form:
+            question.form.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(question)
+        return question
+
+    @staticmethod
+    def delete_question(db: Session, question_id: str) -> None:
+        question = QuestionService.get_question_by_id(db, question_id)
+        form = question.form
+        db.delete(question)
+        if form:
+            form.updated_at = datetime.utcnow()
+        db.commit()
+
+    @staticmethod
+    def reorder_questions(db: Session, form_id: str, items: list[QuestionReorderItem]) -> list[Question]:
+        FormService.get_form_by_id(db, form_id)
+        for item in items:
+            db.query(Question).filter(Question.id == item.id, Question.form_id == form_id).update({"position": item.position})
+        db.commit()
+        return db.query(Question).filter(Question.form_id == form_id).order_by(Question.position).all()
