@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from "react";
 import { Form } from "@/types";
 import { formsApi } from "@/lib/api/forms";
+import { useAuth } from "@/context/AuthContext";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Plus,
@@ -18,9 +20,13 @@ import {
   Check,
   BarChart3,
   Sliders,
+  LogOut,
+  User as UserIcon,
 } from "lucide-react";
 
 export default function DashboardPage() {
+  const router = useRouter();
+  const { user, logout } = useAuth();
   const [forms, setForms] = useState<Form[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -141,13 +147,47 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <button
-          onClick={() => setIsCreateOpen(true)}
-          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-indigo-600/25 active:scale-95"
-        >
-          <Plus className="w-4 h-4 stroke-[3]" />
-          <span>Create Form</span>
-        </button>
+        <div className="flex items-center gap-3">
+          {user ? (
+            <div className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 py-1.5 px-3 rounded-2xl">
+              {user.avatar_url ? (
+                <img src={user.avatar_url} alt={user.full_name || user.email} className="w-7 h-7 rounded-full object-cover" />
+              ) : (
+                <div className="w-7 h-7 rounded-full bg-indigo-600/30 text-indigo-400 font-bold flex items-center justify-center text-xs">
+                  {user.full_name ? user.full_name[0].toUpperCase() : user.email[0].toUpperCase()}
+                </div>
+              )}
+              <span className="text-xs font-semibold text-zinc-200 hidden sm:inline">
+                {user.full_name || user.email}
+              </span>
+              <button
+                onClick={() => {
+                  logout();
+                  router.push("/login");
+                }}
+                className="p-1 rounded-lg text-zinc-400 hover:text-rose-400 hover:bg-zinc-800 transition-colors ml-1"
+                title="Log Out"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <Link
+              href="/login"
+              className="text-xs font-bold text-indigo-400 hover:text-indigo-300 bg-indigo-600/10 border border-indigo-500/20 px-3 py-1.5 rounded-xl transition-colors"
+            >
+              Sign In
+            </Link>
+          )}
+
+          <button
+            onClick={() => setIsCreateOpen(true)}
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-indigo-600/25 active:scale-95"
+          >
+            <Plus className="w-4 h-4 stroke-[3]" />
+            <span>Create Form</span>
+          </button>
+        </div>
       </header>
 
       {/* Main Container */}

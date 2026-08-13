@@ -10,6 +10,39 @@ export type QuestionType =
 
 export type FormStatus = "draft" | "published";
 
+export interface User {
+  id: string;
+  email: string;
+  full_name?: string | null;
+  avatar_url?: string | null;
+  created_at: string;
+}
+
+export interface UserCreate {
+  email: string;
+  password: string;
+  full_name?: string;
+  avatar_url?: string;
+}
+
+export interface UserLogin {
+  email: string;
+  password: string;
+}
+
+export interface GoogleAuthPayload {
+  email: string;
+  full_name?: string;
+  avatar_url?: string;
+  credential?: string;
+}
+
+export interface TokenResponse {
+  access_token: string;
+  token_type: string;
+  user: User;
+}
+
 export interface QuestionOption {
   id?: string;
   question_id?: string;
