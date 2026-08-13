@@ -17,3 +17,5 @@ class User(Base):
     avatar_url = Column(String(500), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    forms = relationship("Form", back_populates="owner", cascade="all, delete-orphan")

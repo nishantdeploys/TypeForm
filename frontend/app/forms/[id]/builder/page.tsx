@@ -10,7 +10,8 @@ import { BuilderHeader } from "@/components/builder/BuilderHeader";
 import { QuestionListPanel } from "@/components/builder/QuestionListPanel";
 import { BuilderCanvas } from "@/components/builder/BuilderCanvas";
 import { QuestionSettingsPanel } from "@/components/builder/QuestionSettingsPanel";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertCircle, ArrowLeft } from "lucide-react";
+import Link from "next/link";
 
 export default function FormBuilderPage() {
   const params = useParams();
@@ -22,34 +23,11 @@ export default function FormBuilderPage() {
   const [activeQuestionId, setActiveQuestionId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [unauthorizedError, setUnauthorizedError] = useState<string | null>(null);
 
-  const fetchFormDetails = async () => {
-    setLoading(true);
-    try {
-      const data = await formsApi.getById(formId);
-      setForm(data);
-      const qs = data.questions || [];
-      setQuestions(qs);
-      if (qs.length > 0 && !activeQuestionId) {
-        setActiveQuestionId(qs[0].id);
-      }
-    } catch (err) {
-      console.error("Failed to load form builder:", err);
-      router.push("/forms");
-    } fontFinally: {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (formId) {
-      fetchFormDetails();
-    }
-  }, [formId]);
-
-  // Fix typo in try-catch: finally instead of fontFinally
   const loadData = async () => {
     setLoading(true);
+    setUnauthorizedError(null);
     try {
       const data = await formsApi.getById(formId);
       setForm(data);
@@ -58,9 +36,8 @@ export default function FormBuilderPage() {
       if (qs.length > 0 && !activeQuestionId) {
         setActiveQuestionId(qs[0].id);
       }
-    } catch (err) {
-      console.error("Failed to load form builder:", err);
-      router.push("/forms");
+    } catch (err: any) {
+      setUnauthorizedError(err.message || "This form is unavailable or you do not have permission to view it.");
     } finally {
       setLoading(false);
     }
@@ -170,10 +147,35 @@ export default function FormBuilderPage() {
     }
   };
 
-  if (loading || !form) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-white">
         <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+      </div>
+    );
+  }
+
+  if (unauthorizedError || !form) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6 text-white font-sans">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 max-w-md w-full text-center space-y-4 shadow-2xl">
+          <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center mx-auto">
+            <AlertCircle className="w-6 h-6" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-white">Form Unavailable</h2>
+            <p className="text-xs text-zinc-400 mt-1">
+              {unauthorizedError || "You do not have permission to view or edit this form."}
+            </p>
+          </div>
+          <Link
+            href="/forms"
+            className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs py-3 px-5 rounded-xl transition-all shadow-md shadow-indigo-600/20"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Return to Dashboard</span>
+          </Link>
+        </div>
       </div>
     );
   }

@@ -1,11 +1,13 @@
 import json
 import re
 from datetime import datetime
+from typing import Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.models.form import Form
 from app.models.question import Question
 from app.models.response import Response, ResponseAnswer
+from app.models.user import User
 from app.schemas.response import ResponseCreate, ResponseDetailResponse, ResponseAnswerResponse
 from app.schemas.stats import FormStatsResponse, QuestionStat, OptionStat
 from app.services.form_service import FormService
@@ -96,8 +98,8 @@ class ResponseService:
         return response
 
     @staticmethod
-    def get_form_responses(db: Session, form_id: str) -> list[dict]:
-        FormService.get_form_by_id(db, form_id)
+    def get_form_responses(db: Session, form_id: str, user: Optional[User] = None) -> list[dict]:
+        FormService.get_form_by_id(db, form_id, user)
         responses = db.query(Response).filter(Response.form_id == form_id).order_by(Response.submitted_at.desc()).all()
         result = []
         for r in responses:
@@ -117,8 +119,8 @@ class ResponseService:
         return result
 
     @staticmethod
-    def get_response_detail(db: Session, form_id: str, response_id: str) -> ResponseDetailResponse:
-        FormService.get_form_by_id(db, form_id)
+    def get_response_detail(db: Session, form_id: str, response_id: str, user: Optional[User] = None) -> ResponseDetailResponse:
+        FormService.get_form_by_id(db, form_id, user)
         res = db.query(Response).filter(Response.id == response_id, Response.form_id == form_id).first()
         if not res:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Response not found")
@@ -146,8 +148,8 @@ class ResponseService:
         )
 
     @staticmethod
-    def get_form_statistics(db: Session, form_id: str) -> FormStatsResponse:
-        form = FormService.get_form_by_id(db, form_id)
+    def get_form_statistics(db: Session, form_id: str, user: Optional[User] = None) -> FormStatsResponse:
+        form = FormService.get_form_by_id(db, form_id, user)
         total_resp = db.query(func.count(Response.id)).filter(Response.form_id == form_id).scalar() or 0
         
         avg_time = db.query(func.avg(Response.completion_time)).filter(

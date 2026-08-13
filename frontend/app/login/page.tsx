@@ -1,14 +1,27 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import Script from "next/script";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { Sparkles, Eye, EyeOff, Loader2, ArrowRight, AlertCircle, CheckCircle2 } from "lucide-react";
-import Link from "next/link";
+import {
+  Sparkles,
+  Eye,
+  EyeOff,
+  Loader2,
+  ArrowRight,
+  AlertCircle,
+} from "lucide-react";
+
+declare global {
+  interface Window {
+    google?: any;
+  }
+}
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, register, googleLogin } = useAuth();
+  const { user, login, register, googleLogin } = useAuth();
 
   const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
@@ -20,45 +33,30 @@ export default function LoginPage() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
+  const googleClientId =
+    process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
+    "347105561737-ese9e1o5moursdqc2s5nm336asul2j98.apps.googleusercontent.com";
 
-    try {
-      if (mode === "login") {
-        await login({ email, password });
-      } else {
-        if (!fullName.trim()) {
-          throw new Error("Please enter your full name.");
-        }
-        await register({ email, password, full_name: fullName.trim() });
-      }
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (user) {
       router.push("/forms");
-    } catch (err: any) {
-      setError(err.message || "Authentication failed. Please check your credentials.");
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [user, router]);
 
-  const handleGoogleOAuth = async () => {
+  // Execute Google Authentication with FastAPI Backend
+  const executeGoogleAuth = async (emailInput: string, nameInput?: string, avatarUrl?: string) => {
+    if (!emailInput.trim()) return;
     setError(null);
     setGoogleLoading(true);
 
     try {
-      // Perform Google OAuth sign-in flow
-      // Generates authenticated demo user context for instant verification
-      const sampleAccounts = [
-        { email: "alex.admin@typeform.app", full_name: "Alex Rivera", avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80" },
-        { email: "sarah.creator@typeform.app", full_name: "Sarah Jenkins", avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80" },
-      ];
-      const randomAcc = sampleAccounts[Math.floor(Math.random() * sampleAccounts.length)];
-
       await googleLogin({
-        email: randomAcc.email,
-        full_name: randomAcc.full_name,
-        avatar_url: randomAcc.avatar,
+        email: emailInput.trim(),
+        full_name: nameInput?.trim() || emailInput.split("@")[0],
+        avatar_url:
+          avatarUrl ||
+          `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(emailInput)}`,
       });
 
       router.push("/forms");
@@ -69,30 +67,111 @@ export default function LoginPage() {
     }
   };
 
-  return (
-    <div className="min-h-screen w-full bg-zinc-950 text-white flex flex-col items-center justify-center p-4 relative overflow-hidden select-none">
-      {/* Dynamic Background Glowing Spheres */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-indigo-600/15 blur-[140px] rounded-full pointer-events-none" />
-      <div className="absolute bottom-10 right-10 w-80 h-80 bg-purple-600/15 blur-[140px] rounded-full pointer-events-none" />
+  // Trigger Official Google Native OAuth 2.0 Popup Window
+  const handleGoogleClick = () => {
+    setError(null);
 
-      {/* Main Authentication Card */}
+    if (typeof window !== "undefined" && window.google?.accounts?.oauth2) {
+      try {
+        const tokenClient = window.google.accounts.oauth2.initTokenClient({
+          client_id: googleClientId,
+          scope: "https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email",
+          callback: async (tokenResponse: any) => {
+            if (tokenResponse && tokenResponse.access_token) {
+              setGoogleLoading(true);
+              try {
+                // Fetch profile directly from Google API endpoint
+                const res = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+                  headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
+                });
+                const googleProfile = await res.json();
+                if (googleProfile && googleProfile.email) {
+                  await executeGoogleAuth(
+                    googleProfile.email,
+                    googleProfile.name || googleProfile.given_name,
+                    googleProfile.picture
+                  );
+                } else {
+                  setError("Could not retrieve profile from Google account.");
+                }
+              } catch (fetchErr: any) {
+                setError("Failed to verify Google account profile.");
+              } finally {
+                setGoogleLoading(false);
+              }
+            }
+          },
+          error_callback: (err: any) => {
+            console.warn("Google OAuth Popup closed:", err);
+          },
+        });
+
+        // Open official Google native login popup window directly
+        tokenClient.requestAccessToken({ prompt: "select_account" });
+      } catch (err: any) {
+        setError(err.message || "Unable to launch Google OAuth popup.");
+      }
+    } else {
+      setError("Google OAuth script loading... Please wait a second and try again.");
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    try {
+      if (mode === "login") {
+        await login({ email: email.trim(), password });
+      } else {
+        if (!fullName.trim()) {
+          throw new Error("Please enter your full name.");
+        }
+        await register({
+          email: email.trim(),
+          password,
+          full_name: fullName.trim(),
+        });
+      }
+      router.push("/forms");
+    } catch (err: any) {
+      setError(err.message || "Authentication failed. Please check your credentials.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen w-full bg-zinc-950 text-white flex flex-col items-center justify-center p-4 relative overflow-hidden select-none font-sans">
+      {/* Official Google Identity Services Script */}
+      <Script
+        src="https://accounts.google.com/gsi/client"
+        strategy="afterInteractive"
+      />
+
+      {/* Lighting Background */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[30rem] h-[30rem] bg-indigo-600/15 blur-[150px] rounded-full pointer-events-none" />
+      <div className="absolute bottom-10 right-10 w-96 h-96 bg-purple-600/15 blur-[150px] rounded-full pointer-events-none" />
+
+      {/* Main Auth Card */}
       <div className="w-full max-w-md bg-zinc-900/70 border border-zinc-800/80 backdrop-blur-xl p-8 rounded-3xl shadow-2xl z-10 space-y-6">
-        {/* Brand Logo & Header */}
+        {/* Brand Header */}
         <div className="text-center space-y-2">
           <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center mx-auto shadow-lg shadow-indigo-600/30">
             <Sparkles className="w-6 h-6 text-white" />
           </div>
           <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">
-            {mode === "login" ? "Welcome Back" : "Create Account"}
+            {mode === "login" ? "Admin Login" : "Create Account"}
           </h1>
           <p className="text-xs md:text-sm text-zinc-400 font-medium">
             {mode === "login"
-              ? "Sign in to access your forms and responses"
-              : "Start building conversational forms today"}
+              ? "Sign in to manage your forms and view responses"
+              : "Register a new creator account"}
           </p>
         </div>
 
-        {/* Auth Mode Toggle Tabs */}
+        {/* Tab Switcher */}
         <div className="bg-zinc-950 p-1.5 rounded-2xl border border-zinc-800 flex items-center gap-1">
           <button
             type="button"
@@ -124,9 +203,9 @@ export default function LoginPage() {
           </button>
         </div>
 
-        {/* Error Alert */}
+        {/* Error Alert Box */}
         {error && (
-          <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-xs text-rose-400 flex items-start gap-2">
+          <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-xs text-rose-400 flex items-start gap-2.5">
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
             <span>{error}</span>
           </div>
@@ -135,9 +214,9 @@ export default function LoginPage() {
         {/* Google OAuth Button */}
         <button
           type="button"
-          onClick={handleGoogleOAuth}
+          onClick={handleGoogleClick}
           disabled={googleLoading || loading}
-          className="w-full py-3.5 px-4 bg-zinc-950 hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 rounded-2xl flex items-center justify-center gap-3 text-xs font-bold text-zinc-200 transition-all active:scale-[0.98]"
+          className="w-full py-3.5 px-4 bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-2xl flex items-center justify-center gap-3 text-xs font-bold text-zinc-200 transition-all active:scale-[0.98]"
         >
           {googleLoading ? (
             <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
@@ -164,11 +243,11 @@ export default function LoginPage() {
           <span>Continue with Google</span>
         </button>
 
-        {/* Separator */}
+        {/* OR Separator */}
         <div className="flex items-center gap-3">
           <div className="flex-1 h-px bg-zinc-800" />
           <span className="text-[10px] font-bold text-zinc-400 tracking-wider uppercase">
-            OR CONTINUE WITH EMAIL
+            OR WITH EMAIL & PASSWORD
           </span>
           <div className="flex-1 h-px bg-zinc-800" />
         </div>
@@ -200,7 +279,7 @@ export default function LoginPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="name@company.com"
+              placeholder="admin@example.com"
               className="w-full bg-zinc-950 border border-zinc-800 focus:border-indigo-500 rounded-2xl p-3.5 text-sm font-medium text-white outline-none transition-colors"
             />
           </div>
@@ -238,45 +317,12 @@ export default function LoginPage() {
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <>
-                <span>{mode === "login" ? "Sign In to Studio" : "Create Account"}</span>
+                <span>{mode === "login" ? "Sign In" : "Register Account"}</span>
                 <ArrowRight className="w-4 h-4" />
               </>
             )}
           </button>
         </form>
-
-        {/* Footer switch prompt */}
-        <div className="text-center text-xs text-zinc-400 font-medium pt-2">
-          {mode === "login" ? (
-            <span>
-              Don't have an account?{" "}
-              <button
-                type="button"
-                onClick={() => {
-                  setMode("register");
-                  setError(null);
-                }}
-                className="text-indigo-400 font-bold hover:underline"
-              >
-                Register here
-              </button>
-            </span>
-          ) : (
-            <span>
-              Already registered?{" "}
-              <button
-                type="button"
-                onClick={() => {
-                  setMode("login");
-                  setError(null);
-                }}
-                className="text-indigo-400 font-bold hover:underline"
-              >
-                Sign in
-              </button>
-            </span>
-          )}
-        </div>
       </div>
     </div>
   );

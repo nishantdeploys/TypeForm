@@ -1,16 +1,18 @@
 from datetime import datetime
+from typing import Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.models.form import Form
 from app.models.question import Question, QuestionOption
+from app.models.user import User
 from app.schemas.question import QuestionCreate, QuestionUpdate, QuestionReorderItem
 from app.services.form_service import FormService
 from fastapi import HTTPException, status
 
 class QuestionService:
     @staticmethod
-    def add_question(db: Session, form_id: str, q_in: QuestionCreate) -> Question:
-        form = FormService.get_form_by_id(db, form_id)
+    def add_question(db: Session, form_id: str, q_in: QuestionCreate, user: Optional[User] = None) -> Question:
+        form = FormService.get_form_by_id(db, form_id, user)
         
         # Calculate max position
         max_pos = db.query(func.max(Question.position)).filter(Question.form_id == form_id).scalar()
@@ -44,15 +46,20 @@ class QuestionService:
         return question
 
     @staticmethod
-    def get_question_by_id(db: Session, question_id: str) -> Question:
+    def get_question_by_id(db: Session, question_id: str, user: Optional[User] = None) -> Question:
         question = db.query(Question).filter(Question.id == question_id).first()
         if not question:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Question not found")
+        if user and question.form and question.form.owner_id and question.form.owner_id != user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to view or edit this question."
+            )
         return question
 
     @staticmethod
-    def update_question(db: Session, question_id: str, q_in: QuestionUpdate) -> Question:
-        question = QuestionService.get_question_by_id(db, question_id)
+    def update_question(db: Session, question_id: str, q_in: QuestionUpdate, user: Optional[User] = None) -> Question:
+        question = QuestionService.get_question_by_id(db, question_id, user)
         if q_in.type is not None:
             question.type = q_in.type
         if q_in.title is not None:
@@ -86,8 +93,8 @@ class QuestionService:
         return question
 
     @staticmethod
-    def delete_question(db: Session, question_id: str) -> None:
-        question = QuestionService.get_question_by_id(db, question_id)
+    def delete_question(db: Session, question_id: str, user: Optional[User] = None) -> None:
+        question = QuestionService.get_question_by_id(db, question_id, user)
         form = question.form
         db.delete(question)
         if form:
@@ -95,8 +102,8 @@ class QuestionService:
         db.commit()
 
     @staticmethod
-    def reorder_questions(db: Session, form_id: str, items: list[QuestionReorderItem]) -> list[Question]:
-        FormService.get_form_by_id(db, form_id)
+    def reorder_questions(db: Session, form_id: str, items: list[QuestionReorderItem], user: Optional[User] = None) -> list[Question]:
+        FormService.get_form_by_id(db, form_id, user)
         for item in items:
             db.query(Question).filter(Question.id == item.id, Question.form_id == form_id).update({"position": item.position})
         db.commit()

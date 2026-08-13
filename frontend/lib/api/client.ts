@@ -19,6 +19,14 @@ export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): 
     ...(options.headers as Record<string, string>),
   };
 
+  // Automatically attach Authorization Bearer token from localStorage
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("typeform_auth_token");
+    if (token && !headers["Authorization"]) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+  }
+
   const response = await fetch(url, {
     ...options,
     headers,
