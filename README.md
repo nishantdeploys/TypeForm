@@ -1,242 +1,252 @@
-# Typeform Clone - Conversational Form Platform
+# 🚀 Typeform Clone - Conversational Form Platform & Multi-Tenant SaaS
 
-A full-stack implementation of the Typeform application built for an SDE Fullstack Assignment. This platform replicates Typeform's signature design aesthetic, user experience, interactive drag-and-drop form-building studio, and polished one-question-at-a-time conversational respondent flow.
-
----
-
-## 🌟 Executive Summary & Features
-
-### 1. Interactive Form Builder Studio (`/forms/[id]/builder`)
-- **3-Column Studio Layout**: Left question outline panel, center canvas, and right contextual settings inspector.
-- **Drag-and-Drop Question Reordering**: Powered by `@dnd-kit/core` and `@dnd-kit/sortable` with position persistence in SQLite.
-- **8 Supported Question Types**:
-  1. `short_text` — Single line text input.
-  2. `long_text` — Multi-line textarea for detailed feedback.
-  3. `multiple_choice` — Selectable choice buttons with option reordering & custom labels.
-  4. `dropdown` — Clean select menu.
-  5. `email` — Validated email address input.
-  6. `number` — Validated numeric input.
-  7. `yes_no` — Binary toggle buttons with keyboard shortcuts (`Y`/`N`).
-  8. `rating` — Interactive rating scale (1-5, 1-10) with custom min/max labels.
-- **Per-Question Settings**: Title, description/help text, required toggle, option list manager, and type-specific configurations.
-- **Live Header Controls**: Inline title editing, auto-save status indicator, preview switch, publish/unpublish toggle, and public shareable URL copy.
-
-### 2. Form Management & CRUD (`/forms`)
-- **Creator Dashboard**: View all creator forms with status badges (`Draft` / `Published`), question counts, and response counts.
-- **Full Form Operations**: Create new forms, rename inline, duplicate (deep-cloning questions & options into a draft), and delete with safety confirmation modals.
-- **Publishing Workflow**: One-click publish generating a unique public slug (e.g. `/f/customer-feedback-survey`). Unpublishing restricts public fill access immediately.
-
-### 3. Signature Typeform Respondent Flow (`/f/[slug]`)
-- **One Question at a Time**: Fullscreen minimal layout with high contrast typography and minimal chrome.
-- **Smooth Motion Transitions**: Powered by `Framer Motion` with vertical slide and fade transitions between questions.
-- **Keyboard Navigation**: Advance with `Enter ↵`, navigate backward with `ArrowUp` / `Shift+Enter`, and select choice options directly.
-- **Progress Bar Indicator**: Real-time progress fraction (`Question 3 of 8`) and progress bar.
-- **Client & Server Validation**: Instant required field warnings, regex email syntax checks, numeric enforcement, and choice validation.
-- **Thank You Screen**: Polished submission confirmation with total time calculation and optional restart button.
-- **Zero Authentication Required**: Open shareable public link accessible by anyone.
-
-### 4. Results & Analytics Dashboard (`/forms/[id]/responses`)
-- **Summary Metrics**: Total Submissions, Average Completion Time (seconds), and 100% Completion Rate.
-- **Per-Question Breakdown**: Rating scale averages, choice distribution percentage progress bars, and recent text response samples.
-- **Submissions Data Table**: Searchable table displaying submission timestamp, time taken, preview of answers, and CSV export functionality.
-- **Individual Submission Transcript**: Modal viewer showing every submitted answer formatted like a clean interview transcript.
+A production-grade, full-stack multi-tenant form builder and conversational survey application. Built to replicate Typeform's signature design aesthetic, fluid one-question-at-a-time respondent experience, interactive drag-and-drop studio, role-based multi-tenant data isolation, and Google OAuth 2.0 integration.
 
 ---
 
-## 🛠 Tech Stack
+## 🌐 Live Production Deployment
 
-### Frontend
-- **Framework**: Next.js 16 (App Router)
-- **Language**: TypeScript (Strict Mode)
-- **Styling**: Tailwind CSS
-- **Animations**: Framer Motion
-- **Drag-and-Drop**: `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities`
-- **Icons**: Lucide React
-
-### Backend
-- **Framework**: Python 3.11 with FastAPI
-- **Validation**: Pydantic v2 (ConfigDict schemas)
-- **ORM**: SQLAlchemy 2.0
-- **Database**: SQLite (`typeform.db`)
-- **Testing**: Pytest & HTTPX TestClient
+- **Live Application**: [https://typeform.tech](https://typeform.tech) *(and [https://www.typeform.tech](https://www.typeform.tech))*
+- **Cloud Infrastructure**: AWS EC2 (Ubuntu 22.04 LTS) with Elastic IP (`3.111.96.34`)
+- **Reverse Proxy & SSL**: Nginx Reverse Proxy with Certbot Let's Encrypt SSL/HTTPS Encryption
+- **Process Manager**: PM2 Process Manager (`ecosystem.config.js`)
 
 ---
 
-## 📐 System Architecture
+## 🔑 Demo Access Credentials
 
-```
-                          +------------------------------------------+
-                          |            Next.js Frontend              |
-                          |  App Router, TypeScript, Tailwind, DND   |
-                          +------------------------------------------+
-                                    |                      |
-                    (Creator Admin API)            (Public Respondent Fill API)
-                                    |                      |
-                                    v                      v
-                          +------------------------------------------+
-                          |             FastAPI Backend              |
-                          |   Routes -> Services -> Repositories     |
-                          +------------------------------------------+
-                                               |
-                                     (SQLAlchemy 2.0 ORM)
-                                               |
-                                               v
-                          +------------------------------------------+
-                          |             SQLite Database              |
-                          | (forms, questions, options, responses)   |
-                          +------------------------------------------+
+The database is pre-seeded with two distinct user accounts to demonstrate multi-tenant data isolation and creator analytics:
+
+| User | Email | Password | Seeded Forms |
+| :--- | :--- | :--- | :--- |
+| **Nishant** | `nishant@example.com` | `password123` | • *Customer Feedback Form* (Published, 3 Responses)<br>• *Employee Experience Survey* (Draft) |
+| **Ayush** | `ayush@example.com` | `password123` | • *Product Survey* (Published, 2 Responses)<br>• *Event Feedback* (Published) |
+
+*(You can also sign in via **"Continue with Google"** on the `/login` screen to test official Google OAuth 2.0 authentication).*
+
+---
+
+## 📐 System Architecture Diagram
+
+```text
+                               +-------------------------------------------------+
+                               |           Client Web Browser (HTTPS)            |
+                               |      https://typeform.tech / www.typeform.tech  |
+                               +-------------------------------------------------+
+                                                       |
+                                                       v
+┌──────────────────────────────────────── AWS EC2 INSTANCE (3.111.96.34) ────────────────────────────────────────┐
+│                                                                                                                │
+│                                       🛡️ Nginx Reverse Proxy (Port 80/443 SSL)                                 │
+│                                       ├── / (UI Routes)   ──> Next.js Server (Port 3000)                        │
+│                                       └── /api/* (API)    ──> FastAPI Uvicorn (Port 8000)                      │
+│                                                                                                                │
+│                 ┌──────────────────────────────────────┐     ┌──────────────────────────────────────┐          │
+│                 |         ⚡ Next.js 16 Frontend        |     |         🐍 FastAPI Backend           |          │
+│                 |  App Router, TypeScript, Tailwind,   |     |   Routes -> Services -> Security     |          │
+│                 |  Framer Motion, @dnd-kit Studio UI   |     |   JWT Auth & Multi-Tenant IDOR Guard |          │
+│                 └──────────────────────────────────────┘     └──────────────────────────────────────┘          │
+│                                                                                 |                              │
+│                                                                       (SQLAlchemy 2.0 ORM)                     │
+│                                                                                 |                              │
+│                                                                                 v                              │
+│                                                              ┌──────────────────────────────────────┐          │
+│                                                              |          💾 SQLite Database          |          │
+│                                                              |     (users, forms, questions, etc.)   |          │
+│                                                              └──────────────────────────────────────┘          │
+└────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 🗄 Database Schema
+## 🔒 Multi-Tenant Ownership & Security Flow
 
-The database uses a normalized relational structure stored in `backend/typeform.db`:
-
+```text
+  [ User (e.g., Ayush) ]
+            │
+            │  1. Requests /forms/{nishant_form_id}/builder
+            ▼
+  ┌───────────────────┐
+  │  Next.js Frontend │
+  └───────────────────┘
+            │
+            │  2. GET /api/forms/{nishant_form_id}  (Authorization: Bearer <Ayush_JWT_Token>)
+            ▼
+  ┌───────────────────┐
+  │  FastAPI Backend  │ ──► 3. Decodes JWT & extracts `current_user.id` (Ayush.id)
+  └───────────────────┘
+            │
+            │  4. Queries DB for Form where id = {nishant_form_id}
+            ▼
+  ┌───────────────────┐
+  │  SQLite Database  │ ──► 5. Returns Form (owner_id = Nishant.id)
+  └───────────────────┘
+            │
+            │  6. Security Verification: Is `form.owner_id == current_user.id`?
+            ├─────────────────────────────────────────┐
+            │ NO (Ownership Mismatch / IDOR Attempt)  │ YES (Authorized Owner)
+            ▼                                         ▼
+   HTTP 404 Not Found                       HTTP 200 OK
+   (Prevents form existence leakage)        (Loads Form Data & Builder)
+            │
+            ▼
+   Renders Clean "Form Unavailable" Card
 ```
+
+---
+
+## 🌟 Executive Core Capabilities
+
+### 1. Multi-Tenant User Isolation & IDOR Security
+- **Explicit Relational Ownership**: Every form is linked to an `owner_id` (foreign key referencing `users.id`).
+- **Dashboard Isolation**: `/forms` queries and returns strictly the forms owned by `current_user.id`.
+- **Backend IDOR Protection**: Admin and creator APIs (`/builder`, `/responses`, `/statistics`, question CRUD, publish, duplicate, delete) verify ownership server-side and return `404 Not Found` for unauthorized access attempts.
+
+### 2. Interactive Form Builder Studio (`/forms/[id]/builder`)
+- **3-Column Studio Layout**: Left question outline navigator, center interactive canvas, and right contextual settings inspector.
+- **Drag-and-Drop Question Reordering**: Powered by `@dnd-kit/core` and `@dnd-kit/sortable` with real-time position persistence in SQLite.
+- **8 Supported Question Types**: `short_text`, `long_text`, `multiple_choice`, `dropdown`, `email`, `number`, `yes_no`, and `rating`.
+- **Live Studio Controls**: Real-time title editing, auto-save status indicator, preview mode toggle, publish/unpublish action, and public shareable URL generator.
+
+### 3. Signature Typeform Conversational Respondent Experience (`/f/[slug]`)
+- **One Question at a Time**: Fullscreen minimalist interface with crisp typography and subtle micro-animations.
+- **Fluid Motion Transitions**: Powered by `Framer Motion` with directional vertical slide and fade transitions.
+- **Keyboard Navigation**: Advance with `Enter ↵`, navigate backward with `ArrowUp` / `Shift+Enter`, and select choice options directly via keyboard.
+- **Validation Engine**: Real-time required field checks, regex email syntax validation, numeric constraint enforcement, and error alerts.
+- **Zero Authentication Required**: Open shareable public URLs accessible by anyone without login.
+
+### 4. Results & Creator Analytics (`/forms/[id]/responses`)
+- **Executive Metrics**: Total Submissions, Average Completion Time (seconds), and Completion Rate.
+- **Per-Question Analytics**: Interactive rating scale averages, choice distribution progress bars, and recent text response samples.
+- **Submissions Data Table**: Searchable table displaying submission timestamps, time taken, preview of answers, and CSV export functionality.
+- **Individual Answer Transcripts**: Modal viewer rendering submission entries formatted like clean interview transcripts.
+
+---
+
+## 🗄️ Database Schema (Entity Relationship Diagram)
+
+```text
 +------------------+         +-------------------+         +------------------------+
-|      forms       |         |     questions     |         |    question_options    |
+|      users       |         |       forms       |         |       questions        |
 +------------------+         +-------------------+         +------------------------+
 | id (PK, UUID)    |<-------1| id (PK, UUID)     |<-------1| id (PK, UUID)          |
-| title            |         | form_id (FK)      |         | question_id (FK)       |
-| description      |         | type              |         | label                  |
-| slug (UNIQUE)    |         | title             |         | value                  |
-| status           |         | description       |         | position               |
-| created_at       |         | required          |         +------------------------+
-| updated_at       |         | position          |
-| published_at     |         | settings_json     |
-+------------------+         +-------------------+
-         |                             |
-         |1                            |1
-         v                             v
-+------------------+         +-------------------+
-|    responses     |         | response_answers  |
-+------------------+         +-------------------+
-| id (PK, UUID)    |<-------1| id (PK, UUID)     |
-| form_id (FK)     |         | response_id (FK)  |
-| submitted_at     |         | question_id (FK)  |
-| completion_time  |         | answer_text       |
-| metadata_json    |         | answer_number     |
-+------------------+         | answer_json       |
+| email (UNIQUE)   |         | title             |         | form_id (FK)           |
+| hashed_password  |         | description       |         | type                   |
+| full_name        |         | slug (UNIQUE)     |         | title                  |
+| avatar_url       |         | status            |         | description            |
+| created_at       |         | owner_id (FK)     |         | required               |
++------------------+         | created_at        |         | position               |
+                             +-------------------+         | settings_json          |
+                                      |                    +------------------------+
+                                      |1                               |
+                                      v                                |1
+                             +-------------------+                     v
+                             |     responses     |         +------------------------+
+                             +-------------------+         |    question_options    |
+                             | id (PK, UUID)     |<-------1|------------------------|
+                             | form_id (FK)      |         | id (PK, UUID)          |
+                             | submitted_at      |         | question_id (FK)       |
+                             | completion_time   |         | label                  |
+                             | metadata_json     |         | value                  |
+                             +-------------------+         | position               |
+                                      |                    +------------------------+
+                                      |1
+                                      v
+                             +-------------------+
+                             | response_answers  |
+                             +-------------------+
+                             | id (PK, UUID)     |
+                             | response_id (FK)  |
+                             | question_id (FK)  |
+                             | answer_text       |
+                             | answer_number     |
+                             | answer_json       |
                              +-------------------+
 ```
 
 ---
 
-## 📡 REST API Reference
+## 🛠️ Tech Stack & Architecture
 
-| Method | Endpoint | Description |
+| Layer | Technology | Key Responsibility |
 | :--- | :--- | :--- |
-| `GET` | `/api/forms` | List creator forms with question & response counts |
-| `POST` | `/api/forms` | Create a new form |
-| `GET` | `/api/forms/{id}` | Get form details with questions & options |
-| `PATCH` | `/api/forms/{id}` | Update form metadata or status |
-| `DELETE` | `/api/forms/{id}` | Delete form and cascade related records |
-| `POST` | `/api/forms/{id}/duplicate` | Duplicate form, questions, and options into draft |
-| `POST` | `/api/forms/{id}/publish` | Publish form (validates questions exist) |
-| `POST` | `/api/forms/{id}/unpublish` | Unpublish form |
-| `POST` | `/api/forms/{id}/questions` | Add a new question to a form |
-| `PATCH` | `/api/questions/{id}` | Update question properties or options |
-| `DELETE` | `/api/questions/{id}` | Delete a question |
-| `POST` | `/api/forms/{id}/questions/reorder` | Update question positions via drag-and-drop |
-| `GET` | `/api/forms/{id}/responses` | List all submitted responses for a form |
-| `GET` | `/api/forms/{id}/responses/{response_id}` | Get individual submission answer transcript |
-| `GET` | `/api/forms/{id}/statistics` | Fetch computed question analytics summary |
-| `GET` | `/api/public/forms/{slug}` | Public fetch for published form structure |
-| `POST` | `/api/public/forms/{slug}/responses` | Submit public form response with validation |
+| **Frontend UI** | Next.js 16 (App Router), React 19, TypeScript | Server and client component rendering, route protection |
+| **Styling & Motion** | Tailwind CSS, Framer Motion, Lucide Icons | Ultra-clean minimalist SaaS aesthetic & smooth transitions |
+| **Drag-and-Drop** | `@dnd-kit/core`, `@dnd-kit/sortable` | Accessible question reordering in builder studio |
+| **Backend Framework**| FastAPI (Python 3.11), Pydantic v2 | High-performance REST API, request schema validation |
+| **Security & Auth** | JWT (`pyjwt`), Passlib (`bcrypt`), Google OAuth 2.0 | User authentication and multi-tenant authorization |
+| **ORM & Database** | SQLAlchemy 2.0, SQLite (`typeform.db`) | Relational persistence, query optimization, cascades |
+| **Web Server & Proxy**| Nginx, Certbot SSL, PM2 | Reverse proxying, automated HTTPS, 24/7 uptime |
 
 ---
 
-## 🚀 Local Development Setup
+## 📡 REST API Reference
 
-### Prerequisites
-- Node.js v18+ and npm
-- Python 3.11+
-
-### 1. Backend Setup
-```bash
-# Navigate to backend directory
-cd backend
-
-# Create Python virtual environment
-py -m venv .venv
-
-# Activate virtual environment (Windows PowerShell)
-.venv\Scripts\Activate.ps1
-
-# Install requirements
-pip install -r requirements.txt
-
-# Seed database with sample forms and responses
-python seeds/seed.py
-
-# Run backend API server
-uvicorn app.main:app --reload --port 8000
-```
-Backend API will be running at: `http://localhost:8000`  
-API Swagger Docs: `http://localhost:8000/docs`
-
-### 2. Frontend Setup
-```bash
-# Navigate to frontend directory
-cd frontend
-
-# Install dependencies
-npm install
-
-# Start Next.js development server
-npm run dev -- -p 3000
-```
-Frontend App will be running at: `http://localhost:3000`
+| Method | Endpoint | Authorization | Description |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/auth/register` | Public | Register new user account |
+| `POST` | `/api/auth/login` | Public | Authenticate email/password & receive JWT token |
+| `POST` | `/api/auth/google` | Public | Authenticate/Register via Google OAuth 2.0 |
+| `GET` | `/api/auth/me` | Bearer Token | Retrieve authenticated user profile |
+| `GET` | `/api/forms` | Bearer Token | List authenticated user's owned forms only |
+| `POST` | `/api/forms` | Bearer Token | Create a new form (sets `owner_id = current_user.id`) |
+| `GET` | `/api/forms/{id}` | Bearer Token | Get form details (Owner-only check) |
+| `PATCH` | `/api/forms/{id}` | Bearer Token | Update form metadata or status (Owner-only) |
+| `DELETE` | `/api/forms/{id}` | Bearer Token | Delete form and cascade related records (Owner-only) |
+| `POST` | `/api/forms/{id}/duplicate` | Bearer Token | Duplicate form & questions into draft (Owner-only) |
+| `POST` | `/api/forms/{id}/publish` | Bearer Token | Publish form (Owner-only) |
+| `POST` | `/api/forms/{id}/unpublish` | Bearer Token | Unpublish form (Owner-only) |
+| `POST` | `/api/forms/{id}/questions` | Bearer Token | Add a question to form (Owner-only) |
+| `PATCH` | `/api/questions/{id}` | Bearer Token | Update question properties or options (Owner-only) |
+| `DELETE` | `/api/questions/{id}` | Bearer Token | Delete a question (Owner-only) |
+| `POST` | `/api/forms/{id}/questions/reorder` | Bearer Token | Reorder questions via drag-and-drop (Owner-only) |
+| `GET` | `/api/forms/{id}/responses` | Bearer Token | List submitted responses for a form (Owner-only) |
+| `GET` | `/api/forms/{id}/responses/{res_id}` | Bearer Token | Get individual submission transcript (Owner-only) |
+| `GET` | `/api/forms/{id}/statistics` | Bearer Token | Fetch computed analytics summary (Owner-only) |
+| `GET` | `/api/public/forms/{slug}` | Public | Public fetch for published form structure |
+| `POST` | `/api/public/forms/{slug}/responses` | Public | Submit public form response with validation |
 
 ---
 
 ## 🧪 Testing & Verification
 
-### Running Backend Pytest Suite
+### Pytest Backend Suite (8/8 Passed in 2.12s)
 ```bash
 cd backend
 .venv\Scripts\pytest
 ```
-Expected output:
-```text
-tests/test_forms.py ...
-tests/test_questions.py .
-tests/test_responses.py .
-5 passed in 1.36s
-```
 
-### Running Frontend Production Build
-```bash
-cd frontend
-npm run build
-```
-Expected output:
+Output:
 ```text
-✓ Compiled successfully
-✓ Finalizing page optimization
-Route (app)
-┌ ○ /
-├ ○ /_not-found
-├ ƒ /f/[slug]
-├ ○ /forms
-├ ƒ /forms/[id]/builder
-├ ƒ /forms/[id]/preview
-└ ƒ /forms/[id]/responses
+============================= test session starts =============================
+platform win32 -- Python 3.11.4, pytest-8.4.2
+collected 8 items
+
+tests\test_auth.py ...                                                   [ 37%]
+tests\test_forms.py ...                                                  [ 75%]
+tests\test_questions.py .                                                [ 87%]
+tests\test_responses.py .                                                [100%]
+
+======================== 8 passed in 2.12s ========================
 ```
 
 ---
 
-## 🎯 Evaluation & Implementation Decisions
+## 💻 Local Development Setup
 
-1. **Why SQLite & Normalized Relational Schema?**  
-   Storing forms as monolithic JSON blobs prevents relational analytics and querying. A normalized model (`forms` -> `questions` -> `question_options` & `responses` -> `response_answers`) enables fast per-question aggregations, SQL indexes, and clean data integrity.
+### 1. Backend Setup
+```bash
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+python seeds/seed.py
+uvicorn app.main:app --reload --port 8000
+```
 
-2. **Why `@dnd-kit` for Drag and Drop?**  
-   `@dnd-kit` provides accessible, lightweight drag-and-drop primitives optimized for React and Next.js App Router without inline style hacks or heavy DOM mutations.
-
-3. **How is the Conversational Respondent Flow Implemented?**  
-   Using a centralized `RespondentLayout` component wrapped around `Framer Motion`'s `AnimatePresence`. Each question receives vertical motion direction (`direction = 1` for next, `-1` for back), creating Typeform's signature fluid transitions.
-
-4. **How are Keyboard Shortcuts Handled?**  
-   Global event listeners trap `Enter` and arrow keys (`ArrowUp`/`ArrowDown`), advancing the active question index seamlessly after triggering client-side validation.
+### 2. Frontend Setup
+```bash
+cd frontend
+npm install
+npm run dev -- -p 3000
+```
